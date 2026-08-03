@@ -18,6 +18,13 @@ class MeshViewModel(
     val broadcastMessages = repository.getBroadcastMessages()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val connectedDeviceCount = meshManager.connectedDeviceCount
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+
+    fun startMesh() {
+        meshManager.startMesh()
+    }
+
     fun sendBroadcast(content: String) {
         val message = MeshMessage(
             senderId = myUserId,
@@ -42,5 +49,10 @@ class MeshViewModel(
             repository.saveMessageLocally(message)
             meshManager.broadcastToMesh(message) // Hops through mesh until it finds targetUserId
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        meshManager.stopMesh()
     }
 }

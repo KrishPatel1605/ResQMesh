@@ -9,6 +9,9 @@ import com.example.resqmesh.data.repository.MessageRepository
 import com.example.resqmesh.model.MeshMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class MeshManager(
@@ -21,6 +24,13 @@ class MeshManager(
     private val connectedEndpoints = mutableSetOf<String>()
     private val gson = Gson()
 
+    private val _connectedDeviceCount = MutableStateFlow(0)
+    val connectedDeviceCount: StateFlow<Int> = _connectedDeviceCount.asStateFlow()
+
+    private fun updateConnectedCount() {
+        _connectedDeviceCount.value = connectedEndpoints.size
+    }
+
     // P2P_CLUSTER allows a true mesh network (N-to-N connections)
     private val strategy = Strategy.P2P_CLUSTER
 
@@ -29,14 +39,26 @@ class MeshManager(
         startDiscovery()
     }
 
+    fun stopMesh() {
+        connectionsClient.stopAdvertising()
+        connectionsClient.stopDiscovery()
+        connectionsClient.stopAllEndpoints()
+        connectedEndpoints.clear()
+        updateConnectedCount()
+    }
+
     private fun startAdvertising() {
         val options = AdvertisingOptions.Builder().setStrategy(strategy).build()
         connectionsClient.startAdvertising(myUserId, "DISASTER_MESH_APP", connectionLifecycleCallback, options)
+            .addOnSuccessListener { Log.d("Mesh", "Advertising started") }
+            .addOnFailureListener { e -> Log.e("Mesh", "Advertising failed", e) }
     }
 
     private fun startDiscovery() {
         val options = DiscoveryOptions.Builder().setStrategy(strategy).build()
         connectionsClient.startDiscovery("DISASTER_MESH_APP", endpointDiscoveryCallback, options)
+            .addOnSuccessListener { Log.d("Mesh", "Discovery started") }
+            .addOnFailureListener { e -> Log.e("Mesh", "Discovery failed", e) }
     }
 
     // Handles incoming connections from other devices
@@ -46,20 +68,30 @@ class MeshManager(
         }
 
         override fun onConnectionResult(endpointId: String, result: ConnectionResolution) {
-            if (result.status.isSuccess) connectedEndpoints.add(endpointId)
+            if (result.status.isSuccess) {
+                connectedEndpoints.add(endpointId)
+                updateConnectedCount()
+                Log.d("Mesh", "Connected to $endpointId (${connectedEndpoints.size} total)")
+            } else {
+                Log.d("Mesh", "Connection to $endpointId failed: ${result.status.statusMessage}")
+            }
         }
 
         override fun onDisconnected(endpointId: String) {
             connectedEndpoints.remove(endpointId)
+            updateConnectedCount()
         }
     }
 
     // Handles discovering other devices
     private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
         override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
+            Log.d("Mesh", "Endpoint found: $endpointId")
             connectionsClient.requestConnection(myUserId, endpointId, connectionLifecycleCallback)
         }
-        override fun onEndpointLost(endpointId: String) {}
+        override fun onEndpointLost(endpointId: String) {
+            Log.d("Mesh", "Endpoint lost: $endpointId")
+        }
     }
 
     // Handles receiving data payloads (messages)
@@ -109,6 +141,8 @@ class MeshManager(
 
         if (targets.isNotEmpty()) {
             connectionsClient.sendPayload(targets.toList(), payload)
+        } else {
+            Log.d("Mesh", "No connected endpoints to broadcast to")
         }
     }
 }
