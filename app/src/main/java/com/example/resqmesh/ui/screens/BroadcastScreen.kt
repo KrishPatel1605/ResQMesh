@@ -19,6 +19,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.resqmesh.ui.viewmodels.MeshViewModel
 import kotlinx.coroutines.launch
+import android.content.pm.PackageManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,8 +63,18 @@ fun BroadcastScreen(viewModel: MeshViewModel) {
         }
     }
 
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
-        permissionLauncher.launch(requiredPermissions)
+        val alreadyGranted = requiredPermissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (alreadyGranted) {
+            permissionsGranted = true
+            viewModel.startMesh()
+        } else {
+            permissionLauncher.launch(requiredPermissions)
+        }
     }
 
     // Auto-scroll to newest message

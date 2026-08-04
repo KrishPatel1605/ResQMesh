@@ -34,7 +34,11 @@ class MeshManager(
     // P2P_CLUSTER allows a true mesh network (N-to-N connections)
     private val strategy = Strategy.P2P_CLUSTER
 
+    private var isRunning = false
+
     fun startMesh() {
+        if (isRunning) return
+        isRunning = true
         startAdvertising()
         startDiscovery()
     }
@@ -45,6 +49,7 @@ class MeshManager(
         connectionsClient.stopAllEndpoints()
         connectedEndpoints.clear()
         updateConnectedCount()
+        isRunning = false
     }
 
     private fun startAdvertising() {

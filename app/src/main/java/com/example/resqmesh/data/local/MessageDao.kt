@@ -19,4 +19,12 @@ interface MessageDao {
     // Get DMs for a specific user
     @Query("SELECT * FROM messages WHERE receiverId = :userId OR senderId = :userId ORDER BY timestamp DESC")
     fun getDirectMessages(userId: String): Flow<List<MeshMessage>>
+
+    @Query("""
+    SELECT * FROM messages 
+    WHERE (senderId = :myId AND receiverId = :targetId) 
+       OR (senderId = :targetId AND receiverId = :myId) 
+    ORDER BY timestamp ASC
+    """)
+    fun getConversation(myId: String, targetId: String): Flow<List<MeshMessage>>
 }
