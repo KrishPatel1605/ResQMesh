@@ -19,6 +19,28 @@ class MessageRepository(
         return localDao.getConversation(myId, targetId)
     }
 
+    fun getContacts(myId: String): Flow<List<String>> {
+        return localDao.getContacts(myId)
+    }
+
+    // Pull messages waiting on the server for me, save locally, mark delivered
+    suspend fun syncInboxToLocal(myId: String) {
+        val inboxMessages = fetchInboxFromServer(myId)
+        for (m in inboxMessages) {
+            val meshMessage = MeshMessage(
+                messageId = m.messageId,
+                senderId = m.senderId,
+                receiverId = m.receiverId,
+                content = m.content,
+                timestamp = m.createdAtClient,
+                ttl = m.ttl,
+                isSyncedToBackend = true
+            )
+            saveMessageLocally(meshMessage)
+            markMessageDelivered(m.messageId)
+        }
+    }
+
     suspend fun saveMessageLocally(message: MeshMessage) {
         localDao.insertMessage(message)
     }

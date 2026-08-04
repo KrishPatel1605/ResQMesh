@@ -27,4 +27,14 @@ interface MessageDao {
     ORDER BY timestamp ASC
     """)
     fun getConversation(myId: String, targetId: String): Flow<List<MeshMessage>>
+
+    // Distinct list of people you've exchanged DMs with, most recent first
+    @Query("""
+    SELECT DISTINCT CASE WHEN senderId = :myId THEN receiverId ELSE senderId END AS contactId
+    FROM messages
+    WHERE receiverId IS NOT NULL
+      AND (senderId = :myId OR receiverId = :myId)
+    ORDER BY timestamp DESC
+    """)
+    fun getContacts(myId: String): Flow<List<String>>
 }

@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
                             MeshManager(this@MainActivity, userId, repository, networkMonitor)
                         }
                         val viewModel = remember(userId) {
-                            MeshViewModel(userId, repository, meshManager)
+                            MeshViewModel(userId, repository, meshManager, networkMonitor)
                         }
 
                         DisposableEffect(userId) {

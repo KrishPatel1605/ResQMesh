@@ -11,12 +11,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.resqmesh.ui.viewmodels.MeshViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.clickable
 
 @Composable
 fun DmScreen(viewModel: MeshViewModel) {
     var targetIdInput by remember { mutableStateOf("") }
     var activeTargetId by remember { mutableStateOf<String?>(null) }
     var messageInput by remember { mutableStateOf("") }
+    val contacts by viewModel.contacts.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
 
@@ -32,17 +34,23 @@ fun DmScreen(viewModel: MeshViewModel) {
             Button(onClick = {
                 val trimmed = targetIdInput.trim()
                 if (trimmed.isNotBlank()) activeTargetId = trimmed
-            }) {
-                Text("Open")
-            }
+            }) { Text("Open") }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         val targetId = activeTargetId
         if (targetId == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Enter a user ID above to start a conversation.")
+            Text("Conversations", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(8.dp))
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(contacts) { contactId ->
+                    ListItem(
+                        headlineContent = { Text(contactId) },
+                        modifier = Modifier.clickable { activeTargetId = contactId }
+                    )
+                    HorizontalDivider()
+                }
             }
         } else {
             val messages by viewModel.getConversation(targetId).collectAsState(initial = emptyList())
@@ -56,6 +64,8 @@ fun DmScreen(viewModel: MeshViewModel) {
                     }
                 }
             }
+
+            TextButton(onClick = { activeTargetId = null }) { Text("← Back to conversations") }
 
             Text(
                 text = "Chat with $targetId",
