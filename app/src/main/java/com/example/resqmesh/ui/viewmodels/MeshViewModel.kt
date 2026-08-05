@@ -48,11 +48,7 @@ class MeshViewModel(
         val message = MeshMessage(senderId = myUserId, receiverId = null, content = content)
         viewModelScope.launch {
             repository.saveMessageLocally(message)
-            if (networkMonitor.hasInternetConnection()) {
-                repository.offloadToServer(message)
-            }
-            // still hop over mesh too — broadcasts benefit from both paths
-            meshManager.broadcastToMesh(message)
+            meshManager.broadcastToMesh(message)   // mesh only, never touches the server
         }
     }
 

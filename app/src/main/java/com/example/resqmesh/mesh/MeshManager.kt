@@ -112,29 +112,26 @@ class MeshManager(
     }
 
     private fun processIncomingMessage(message: MeshMessage, senderEndpoint: String) {
-        // Prevent infinite loops
         if (message.ttl <= 0) return
 
         CoroutineScope(Dispatchers.IO).launch {
-            // Save to local database
             repository.saveMessageLocally(message)
 
-            // If I am the destination, notify the UI
             if (message.receiverId == myUserId) {
                 Log.d("Mesh", "Message reached destination!")
                 return@launch
             }
 
-            // The Bridge logic: Do I have internet?
-            if (networkMonitor.hasInternetConnection()) {
+            // Only DMs (non-null receiverId) are eligible for server exit-node delivery.
+            // Broadcasts stay inside the mesh, always.
+            if (message.receiverId != null && networkMonitor.hasInternetConnection()) {
                 val success = repository.offloadToServer(message)
                 if (success) {
-                    Log.d("Mesh", "Message offloaded to PostgreSQL server.")
-                    return@launch // Stop hopping, server will handle it
+                    Log.d("Mesh", "DM offloaded to PostgreSQL server.")
+                    return@launch
                 }
             }
 
-            // If no internet, decrement TTL and hop the message to other devices
             message.ttl -= 1
             broadcastToMesh(message, excludeEndpoint = senderEndpoint)
         }

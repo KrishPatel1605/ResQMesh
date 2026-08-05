@@ -46,6 +46,7 @@ class MessageRepository(
     }
 
     suspend fun offloadToServer(message: MeshMessage): Boolean {
+        if (message.receiverId == null) return false // broadcasts never go to the server
         return try {
             val supabaseMessage = SupabaseMessage(
                 messageId = message.messageId,
