@@ -4,26 +4,28 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.resqmesh.ui.viewmodels.MeshViewModel
 import kotlinx.coroutines.launch
 import android.content.pm.PackageManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BroadcastScreen(viewModel: MeshViewModel) {
     var inputText by remember { mutableStateOf("") }
@@ -81,100 +83,188 @@ fun BroadcastScreen(viewModel: MeshViewModel) {
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             coroutineScope.launch {
-                listState.animateScrollToItem(messages.size - 1)
+                listState.animateScrollToItem(0)
             }
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Emergency Broadcast") },
-                actions = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(end = 16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        if (!permissionsGranted && showPermissionRationale) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        "Bluetooth & Location permissions are required for mesh broadcasting to work.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { permissionLauncher.launch(requiredPermissions) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(
-                                    color = if (connectedCount > 0) Color(0xFF2ECC71) else Color(0xFFE74C3C),
-                                    shape = CircleShape
-                                )
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "$connectedCount connected",
-                            style = MaterialTheme.typography.labelMedium
+                        Text("Grant Permissions")
+                    }
+                }
+            }
+        }
+
+        // Section Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Wifi,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "Active Broadcasts",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f),
+            reverseLayout = true,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+            items(messages.size) { index ->
+                val msg = messages[index]
+                val prevMsg = if (index < messages.size - 1) messages[index + 1] else null
+                val showSender = prevMsg == null || prevMsg.senderId != msg.senderId
+
+                BroadcastMessageCard(
+                    msg = msg,
+                    showSender = showSender,
+                    isMe = msg.senderId == viewModel.myUserId
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = inputText,
+                onValueChange = { inputText = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Emergency Broadcast...") },
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
+                ),
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            if (inputText.isNotBlank()) {
+                                viewModel.sendBroadcast(inputText)
+                                inputText = ""
+                            }
+                        },
+                        enabled = permissionsGranted && inputText.isNotBlank()
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                         )
                     }
                 }
             )
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            if (!permissionsGranted && showPermissionRationale) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            "Bluetooth & Location permissions are required for mesh broadcasting to work.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(onClick = { permissionLauncher.launch(requiredPermissions) }) {
-                            Text("Grant permissions")
-                        }
-                    }
-                }
-            }
+    }
+}
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                items(messages) { msg ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "From: ${msg.senderId.take(5)}...",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            Text(text = msg.content, style = MaterialTheme.typography.bodyLarge)
-                        }
-                    }
-                }
-            }
+@Composable
+private fun BroadcastMessageCard(
+    msg: com.example.resqmesh.model.MeshMessage,
+    showSender: Boolean,
+    isMe: Boolean
+) {
+    val timeFormat = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+    val timeString = timeFormat.format(java.util.Date(msg.timestamp))
 
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (showSender) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
             ) {
-                TextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
-                    placeholder = { Text("Emergency Broadcast...") }
-                )
-                Button(
-                    onClick = {
-                        if (inputText.isNotBlank()) {
-                            viewModel.sendBroadcast(inputText)
-                            inputText = ""
-                        }
-                    },
-                    enabled = permissionsGranted
+                Surface(
+                    modifier = Modifier.size(20.dp),
+                    shape = CircleShape,
+                    color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    Text("Send")
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = msg.senderId.take(1).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isMe) "You" else "User ${msg.senderId.take(6).uppercase()}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            colors = CardDefaults.cardColors(
+                containerColor = if (isMe) 
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) 
+                else 
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = msg.content,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(
+                        text = timeString,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
                 }
             }
         }
