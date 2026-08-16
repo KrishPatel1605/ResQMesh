@@ -24,7 +24,7 @@ interface MessageDao {
     SELECT * FROM messages 
     WHERE (senderId = :myId AND receiverId = :targetId) 
        OR (senderId = :targetId AND receiverId = :myId) 
-    ORDER BY timestamp ASC
+    ORDER BY timestamp DESC
     """)
     fun getConversation(myId: String, targetId: String): Flow<List<MeshMessage>>
 
